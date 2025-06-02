@@ -195,7 +195,12 @@ if st.session_state.delete_index is not None:
 st.subheader(t["alerts"])
 today = datetime.today().date()
 df_alert = st.session_state.df.copy()
-df_alert[t["expiry_date"]] = pd.to_datetime(df_alert[t["expiry_date"]], errors='coerce').dt.date
+if t["expiry_date"] in df_alert.columns:
+    df_alert[t["expiry_date"]] = pd.to_datetime(df_alert[t["expiry_date"]], errors='coerce').dt.date
+    df_alert = df_alert[df_alert[t["expiry_date"]].notna() & (df_alert[t["expiry_date"]] <= today + timedelta(days=60))]
+else:
+    df_alert = pd.DataFrame()
+
 df_alert = df_alert[df_alert[t["expiry_date"]].notna() & (df_alert[t["expiry_date"]] <= today + timedelta(days=60))]
 
 if not df_alert.empty:
