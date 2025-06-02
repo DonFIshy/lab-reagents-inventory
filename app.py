@@ -80,6 +80,24 @@ def init_data():
 if "df" not in st.session_state:
     st.session_state.df = init_data()
 
+uploaded_file = st.sidebar.file_uploader("📤 העלה קובץ Excel (xlsx)", type=["xlsx"])
+if uploaded_file:
+    try:
+        uploaded_df = pd.read_excel(uploaded_file)
+        expected_columns = [
+            t["name"], t["supplier"], t["catalog_number"], t["cas_number"],
+            t["internal_id"], t["batch_number"], t["received_date"],
+            t["expiry_date"], t["quantity"], t["open_date"]
+        ]
+        if all(col in uploaded_df.columns for col in expected_columns):
+            st.session_state.df = uploaded_df
+            st.success("📁 הקובץ נטען בהצלחה.")
+        else:
+            st.error("❌ הקובץ לא כולל את כל העמודות הנדרשות.")
+    except Exception as e:
+        st.error(f"שגיאה בטעינת הקובץ: {e}")
+
+
 if "delete_index" not in st.session_state:
     st.session_state.delete_index = None
 
