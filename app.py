@@ -5,6 +5,7 @@ import io
 
 st.set_page_config(page_title="Reagents Inventory", layout="wide")
 
+# תרגום
 translations = {
     "he": {
         "title": "📦 ניהול מלאי ריאגנטים במעבדה",
@@ -17,30 +18,24 @@ translations = {
         "batch_number": "מספר אצווה",
         "received_date": "תאריך קבלה",
         "expiry_date": "תוקף",
-        "quantity": "כמות במלאי (בקבוקים)",
+        "expiry_note": "הערת תוקף",
+        "quantity": "כמות במלאי",
         "open_date": "תאריך פתיחה",
         "location": "מיקום פיזי",
-        "username": "שם המשתמש",
-        "added": "✔️ הריאגנט נוסף!",
-        "reagents_list": "📋 רשימת ריאגנטים",
-        "delete": "🗑️ מחק",
-        "confirm_msg": "האם אתה בטוח שברצונך למחוק את הריאגנט:",
-        "confirm_delete": "✅ כן, מחק",
-        "cancel": "❌ ביטול",
-        "deleted": "הריאגנט נמחק בהצלחה.",
-        "cancelled": "המחיקה בוטלה.",
-        "alerts": "⚠️ התראות: תוקפים קרובים",
-        "expiring_soon": "חומרים שתוקפם תוך חודשיים:",
-        "no_expiry_alerts": "אין תוקפים קרובים.",
-        "download": "⬇️ הורד CSV",
-        "download_btn": "📥 הורד CSV",
-        "upload_excel": "📤 העלה קובץ Excel (xlsx)",
+        "username": "שם משתמש",
+        "alerts": "⚠️ חומרים שתוקפם קרוב",
+        "expiring_soon": "ריאגנטים שתוקפם תוך 60 יום:",
+        "no_expiry_alerts": "אין חומרים שתוקפם קרוב.",
         "history_log": "🕒 היסטוריית הוצאות",
+        "delete": "🗑️ מחק",
         "use_bottle": "📤 הוצא בקבוק",
-        "no_stock": "❗ אין בקבוקים במלאי",
-        "bottle_used": "בקבוק הוצא ({}) - נותרו {}",
+        "confirm_msg": "האם למחוק את",
+        "confirm_delete": "✅ מחק",
+        "cancel": "❌ ביטול",
+        "deleted": "הריאגנט נמחק.",
+        "cancelled": "המחיקה בוטלה.",
         "file_loaded": "📁 הקובץ נטען בהצלחה.",
-        "file_error": "❌ הקובץ לא כולל את כל העמודות הנדרשות.",
+        "file_error": "❌ הקובץ לא כולל את כל העמודות.",
         "file_exception": "שגיאה בטעינת הקובץ:"
     },
     "en": {
@@ -54,165 +49,148 @@ translations = {
         "batch_number": "Batch Number",
         "received_date": "Date Received",
         "expiry_date": "Expiry Date",
-        "quantity": "Stock Quantity (Bottles)",
+        "expiry_note": "Expiry Note",
+        "quantity": "Stock Quantity",
         "open_date": "Opening Date",
         "location": "Physical Location",
         "username": "Username",
-        "added": "✔️ Reagent added!",
-        "reagents_list": "📋 Reagent List",
-        "delete": "🗑️ Delete",
-        "confirm_msg": "Are you sure you want to delete this reagent:",
-        "confirm_delete": "✅ Yes, delete",
-        "cancel": "❌ Cancel",
-        "deleted": "Reagent deleted successfully.",
-        "cancelled": "Deletion cancelled.",
-        "alerts": "⚠️ Alerts: Expiring Soon",
+        "alerts": "⚠️ Expiring Soon",
         "expiring_soon": "Reagents expiring within 60 days:",
         "no_expiry_alerts": "No expiring reagents.",
-        "download": "⬇️ Download CSV",
-        "download_btn": "📥 Download CSV",
-        "upload_excel": "📤 Upload Excel file (xlsx)",
-        "history_log": "🕒 Usage History Log",
+        "history_log": "🕒 Usage Log",
+        "delete": "🗑️ Delete",
         "use_bottle": "📤 Use Bottle",
-        "no_stock": "❗ No bottles in stock",
-        "bottle_used": "Bottle used ({}) - {} left",
-        "file_loaded": "📁 File loaded successfully.",
-        "file_error": "❌ File missing required columns.",
-        "file_exception": "File load error:"
+        "confirm_msg": "Are you sure you want to delete",
+        "confirm_delete": "✅ Delete",
+        "cancel": "❌ Cancel",
+        "deleted": "Reagent deleted.",
+        "cancelled": "Deletion cancelled.",
+        "file_loaded": "📁 File loaded.",
+        "file_error": "❌ Missing required columns.",
+        "file_exception": "File error:"
     }
 }
 
-language = st.sidebar.selectbox("Language / שפה", ["עברית", "English"])
-lang_code = "he" if language == "עברית" else "en"
-t = translations[lang_code]
+# שפה
+language = st.sidebar.selectbox("Language / שפה", ["English", "עברית"])
+lang = "he" if language == "עברית" else "en"
+t = translations[lang]
 
+# יוזר
 username = st.sidebar.text_input(t["username"], value="")
 
-@st.cache_data
-def init_data():
-    return pd.DataFrame(columns=[
-        t["name"], t["supplier"], t["catalog_number"], t["cas_number"], t["internal_id"],
-        t["batch_number"], t["received_date"], t["expiry_date"], t["quantity"], t["open_date"], t["location"]
-    ])
-
-@st.cache_data
-def init_log():
-    return pd.DataFrame(columns=["Date", t["name"], t["batch_number"], t["username"]])
+# עמודות נדרשות
+columns = [
+    t["name"], t["supplier"], t["catalog_number"], t["cas_number"],
+    t["internal_id"], t["batch_number"], t["received_date"],
+    t["expiry_date"], t["expiry_note"], t["quantity"],
+    t["open_date"], t["location"]
+]
 
 if "df" not in st.session_state:
-    st.session_state.df = init_data()
+    st.session_state.df = pd.DataFrame(columns=columns)
 
 if "log" not in st.session_state:
-    st.session_state.log = init_log()
+    st.session_state.log = pd.DataFrame(columns=["Date", t["name"], t["batch_number"], t["username"]])
 
 if "delete_index" not in st.session_state:
     st.session_state.delete_index = None
 
-uploaded_file = st.sidebar.file_uploader(t["upload_excel"], type=["xlsx"])
-if uploaded_file:
+# העלאת קובץ
+file = st.sidebar.file_uploader("📤 Excel", type=["xlsx"])
+if file:
     try:
-        uploaded_df = pd.read_excel(uploaded_file)
-        expected_columns = [
-            t["name"], t["supplier"], t["catalog_number"], t["cas_number"], t["internal_id"],
-            t["batch_number"], t["received_date"], t["expiry_date"], t["quantity"], t["open_date"], t["location"]
-        ]
-        if all(col in uploaded_df.columns for col in expected_columns):
-            st.session_state.df = uploaded_df
+        uploaded = pd.read_excel(file)
+        if all(c in uploaded.columns for c in columns):
+            st.session_state.df = uploaded
             st.success(t["file_loaded"])
         else:
             st.error(t["file_error"])
     except Exception as e:
         st.error(f"{t['file_exception']} {e}")
 
+# טופס
 st.title(t["title"])
-
-with st.form("form_add"):
-    cols = st.columns(2)
-    name = cols[0].text_input(t["name"])
-    supplier = cols[1].text_input(t["supplier"])
-
-    cols = st.columns(2)
-    catalog_number = cols[0].text_input(t["catalog_number"])
-    cas_number = cols[1].text_input(t["cas_number"])
-
-    cols = st.columns(2)
-    internal_id = cols[0].text_input(t["internal_id"])
-    batch_number = cols[1].text_input(t["batch_number"])
-
-    cols = st.columns(2)
-    received_date = cols[0].date_input(t["received_date"], value=datetime.today())
-    expiry_date = cols[1].date_input(t["expiry_date"])
-
-    cols = st.columns(2)
-    quantity = cols[0].number_input(t["quantity"], min_value=0, format="%d")
-    open_date = cols[1].date_input(t["open_date"], value=datetime.today())
-
+with st.form("add"):
+    c1, c2 = st.columns(2)
+    name = c1.text_input(t["name"])
+    supplier = c2.text_input(t["supplier"])
+    c3, c4 = st.columns(2)
+    catalog = c3.text_input(t["catalog_number"])
+    cas = c4.text_input(t["cas_number"])
+    c5, c6 = st.columns(2)
+    internal = c5.text_input(t["internal_id"])
+    batch = c6.text_input(t["batch_number"])
+    c7, c8 = st.columns(2)
+    received = c7.date_input(t["received_date"])
+    expiry = c8.date_input(t["expiry_date"])
+    note = st.text_input(t["expiry_note"])
+    c9, c10 = st.columns(2)
+    qty = c9.number_input(t["quantity"], min_value=0, format="%d")
+    opened = c10.date_input(t["open_date"])
     location = st.text_input(t["location"])
+    if st.form_submit_button(t["add_reagent"]):
+        new = pd.DataFrame([[name, supplier, catalog, cas, internal, batch,
+                             received, expiry, note, qty, opened, location]],
+                           columns=columns)
+        st.session_state.df = pd.concat([st.session_state.df, new], ignore_index=True)
 
-    submitted = st.form_submit_button(t["add_reagent"])
-    if submitted:
-        new_row = pd.DataFrame([[
-            name, supplier, catalog_number, cas_number, internal_id,
-            batch_number, received_date, expiry_date, quantity, open_date, location
-        ]], columns=st.session_state.df.columns)
-        st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
-        st.success(t["added"])
-
-st.subheader(t["reagents_list"])
-for i, row in st.session_state.df.iterrows():
-    cols = st.columns([5, 1])
-    with cols[0]:
-       st.markdown(f"**{row[t['name']]}** | {t['batch_number']}: {row[t['batch_number']]} | {t['expiry_date']}: {row[t['expiry_date']]} | {t['quantity']}: {row[t['quantity']]} | {t['location']}: {row[t['location']]}")
-
-
-    with cols[1]:
-        if st.button(t["delete"], key=f"delete_{i}"):
-            st.session_state.delete_index = i
-        if row[t["quantity"]] > 0:
-            if st.button(t["use_bottle"], key=f"use_{i}"):
-                st.session_state.df.at[i, t["quantity"]] -= 1
-                new_log = pd.DataFrame([[datetime.now(), row[t["name"]], row[t["batch_number"]], username]],
-                                       columns=st.session_state.log.columns)
-                st.session_state.log = pd.concat([st.session_state.log, new_log], ignore_index=True)
-                st.success(t["bottle_used"].format(row[t["name"]], st.session_state.df.at[i, t["quantity"]]))
-                st.rerun()
-        else:
-            st.info(t["no_stock"])
-
-if st.session_state.delete_index is not None:
-    index = st.session_state.delete_index
-    st.error(f"{t['confirm_msg']} **{st.session_state.df.loc[index, t['name']]}**?")
-    col_confirm = st.columns(2)
-    if col_confirm[0].button(t["confirm_delete"], key="confirm_delete"):
-        st.session_state.df = st.session_state.df.drop(index=index).reset_index(drop=True)
-        st.session_state.delete_index = None
-        st.success(t["deleted"])
-        st.rerun()
-    if col_confirm[1].button(t["cancel"], key="cancel_delete"):
-        st.session_state.delete_index = None
-        st.info(t["cancelled"])
-
+# תצוגת רשימה
 st.subheader(t["alerts"])
 today = datetime.today().date()
 df_alert = st.session_state.df.copy()
 if t["expiry_date"] in df_alert.columns:
-    df_alert[t["expiry_date"]] = pd.to_datetime(df_alert[t["expiry_date"]], errors='coerce').dt.date
-    df_alert = df_alert[df_alert[t["expiry_date"]].notna() & (df_alert[t["expiry_date"]] <= today + timedelta(days=60))]
-else:
-    df_alert = pd.DataFrame()
+    try:
+        df_alert[t["expiry_date"]] = pd.to_datetime(df_alert[t["expiry_date"]], errors="coerce").dt.date
+        df_alert = df_alert[df_alert[t["expiry_date"]].notna() &
+                            (df_alert[t["expiry_date"]] <= today + timedelta(days=60))]
+        if not df_alert.empty:
+            st.warning(t["expiring_soon"])
+            st.dataframe(df_alert, use_container_width=True)
+        else:
+            st.success(t["no_expiry_alerts"])
+    except Exception as e:
+        st.error(f"⚠️ {e}")
 
-df_alert = df_alert[df_alert[t["expiry_date"]].notna() & (df_alert[t["expiry_date"]] <= today + timedelta(days=60))]
+st.subheader(t["title"])
+for i, row in st.session_state.df.iterrows():
+    col1, col2 = st.columns([5, 1])
+    with col1:
+        st.markdown(
+            f"**{row[t['name']]}** | {t['batch_number']}: {row[t['batch_number']]} | "
+            f"{t['expiry_date']}: {row[t['expiry_date']]} | {t['expiry_note']}: {row[t['expiry_note']]} | "
+            f"{t['quantity']}: {row[t['quantity']]} | {t['location']}: {row[t['location']]}"
+        )
+    with col2:
+        if st.button(t["delete"], key=f"del_{i}"):
+            st.session_state.delete_index = i
+        if row[t["quantity"]] > 0:
+            if st.button(t["use_bottle"], key=f"use_{i}"):
+                st.session_state.df.at[i, t["quantity"]] -= 1
+                log_row = pd.DataFrame([[datetime.now(), row[t["name"]], row[t["batch_number"]], username]],
+                                       columns=["Date", t["name"], t["batch_number"], t["username"]])
+                st.session_state.log = pd.concat([st.session_state.log, log_row], ignore_index=True)
+                st.rerun()
+        else:
+            st.info("❗ 0")
 
-if not df_alert.empty:
-    st.warning(t["expiring_soon"])
-    st.dataframe(df_alert, use_container_width=True)
-else:
-    st.success(t["no_expiry_alerts"])
+if st.session_state.delete_index is not None:
+    i = st.session_state.delete_index
+    st.error(f"{t['confirm_msg']} {st.session_state.df.loc[i, t['name']]}?")
+    b1, b2 = st.columns(2)
+    if b1.button(t["confirm_delete"]):
+        st.session_state.df = st.session_state.df.drop(index=i).reset_index(drop=True)
+        st.session_state.delete_index = None
+        st.success(t["deleted"])
+        st.rerun()
+    if b2.button(t["cancel"]):
+        st.session_state.delete_index = None
+        st.info(t["cancelled"])
 
-st.subheader(t["download"])
-buffer = io.StringIO()
-st.session_state.df.to_csv(buffer, index=False, encoding='utf-8-sig')
-st.download_button(t["download_btn"], buffer.getvalue(), file_name="reagents_inventory.csv", mime="text/csv")
+# הורדה
+csv = st.session_state.df.to_csv(index=False, encoding='utf-8-sig')
+st.download_button("📥 Download CSV", csv, file_name="inventory.csv", mime="text/csv")
 
+# לוג
 st.subheader(t["history_log"])
 st.dataframe(st.session_state.log, use_container_width=True)
