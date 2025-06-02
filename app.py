@@ -1,11 +1,14 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
-import io
 
 st.set_page_config(page_title="Reagents Inventory", layout="wide")
 
-# תרגום
+# פונקציה לפירוש תאריכים בפורמטים שונים
+def parse_flexible_date(series):
+    return pd.to_datetime(series, errors='coerce', dayfirst=True)
+
+# תרגומים
 translations = {
     "he": {
         "title": "📦 ניהול מלאי ריאגנטים במעבדה",
@@ -87,6 +90,7 @@ columns = [
     t["open_date"], t["location"]
 ]
 
+# יוזר סשן
 if "df" not in st.session_state:
     st.session_state.df = pd.DataFrame(columns=columns)
 
@@ -102,6 +106,9 @@ if file:
     try:
         uploaded = pd.read_excel(file)
         if all(c in uploaded.columns for c in columns):
+            for col in ["Date Received", "Expiry Date", "Opening Date"]:
+                uploaded[col] = parse_flexible_date(uploaded[col])
+            uploaded[t["quantity"]] = pd.to_numeric(uploaded[t["quantity"]], errors='coerce').fillna(1).astype(int)
             st.session_state.df = uploaded
             st.success(t["file_loaded"])
         else:
@@ -109,7 +116,7 @@ if file:
     except Exception as e:
         st.error(f"{t['file_exception']} {e}")
 
-# טופס
+# טופס הוספה
 st.title(t["title"])
 with st.form("add"):
     c1, c2 = st.columns(2)
@@ -135,13 +142,13 @@ with st.form("add"):
                            columns=columns)
         st.session_state.df = pd.concat([st.session_state.df, new], ignore_index=True)
 
-# תצוגת רשימה
+# התראות
 st.subheader(t["alerts"])
 today = datetime.today().date()
 df_alert = st.session_state.df.copy()
 if t["expiry_date"] in df_alert.columns:
     try:
-        df_alert[t["expiry_date"]] = pd.to_datetime(df_alert[t["expiry_date"]], errors="coerce").dt.date
+        df_alert[t["expiry_date"]] = parse_flexible_date(df_alert[t["expiry_date"]]).dt.date
         df_alert = df_alert[df_alert[t["expiry_date"]].notna() &
                             (df_alert[t["expiry_date"]] <= today + timedelta(days=60))]
         if not df_alert.empty:
@@ -152,6 +159,7 @@ if t["expiry_date"] in df_alert.columns:
     except Exception as e:
         st.error(f"⚠️ {e}")
 
+# תצוגת מלאי
 st.subheader(t["title"])
 for i, row in st.session_state.df.iterrows():
     col1, col2 = st.columns([5, 1])
@@ -187,10 +195,10 @@ if st.session_state.delete_index is not None:
         st.session_state.delete_index = None
         st.info(t["cancelled"])
 
-# הורדה
+# הורדה ל-CSV
 csv = st.session_state.df.to_csv(index=False, encoding='utf-8-sig')
 st.download_button("📥 Download CSV", csv, file_name="inventory.csv", mime="text/csv")
 
-# לוג
+# לוג שימוש
 st.subheader(t["history_log"])
 st.dataframe(st.session_state.log, use_container_width=True)
