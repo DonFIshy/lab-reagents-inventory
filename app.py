@@ -5,7 +5,6 @@ import io
 
 st.set_page_config(page_title="Reagents Inventory", layout="wide")
 
-# תרגום טקסטים
 translations = {
     "he": {
         "title": "📦 ניהול מלאי ריאגנטים במעבדה",
@@ -18,8 +17,10 @@ translations = {
         "batch_number": "מספר אצווה",
         "received_date": "תאריך קבלה",
         "expiry_date": "תוקף",
-        "quantity": "כמות במלאי",
+        "quantity": "כמות במלאי (בקבוקים)",
         "open_date": "תאריך פתיחה",
+        "location": "מיקום פיזי",
+        "username": "שם המשתמש",
         "added": "✔️ הריאגנט נוסף!",
         "reagents_list": "📋 רשימת ריאגנטים",
         "delete": "🗑️ מחק",
@@ -32,7 +33,15 @@ translations = {
         "expiring_soon": "חומרים שתוקפם תוך חודשיים:",
         "no_expiry_alerts": "אין תוקפים קרובים.",
         "download": "⬇️ הורד CSV",
-        "download_btn": "📥 הורד CSV"
+        "download_btn": "📥 הורד CSV",
+        "upload_excel": "📤 העלה קובץ Excel (xlsx)",
+        "history_log": "🕒 היסטוריית הוצאות",
+        "use_bottle": "📤 הוצא בקבוק",
+        "no_stock": "❗ אין בקבוקים במלאי",
+        "bottle_used": "בקבוק הוצא ({}) - נותרו {}",
+        "file_loaded": "📁 הקובץ נטען בהצלחה.",
+        "file_error": "❌ הקובץ לא כולל את כל העמודות הנדרשות.",
+        "file_exception": "שגיאה בטעינת הקובץ:"
     },
     "en": {
         "title": "📦 Lab Reagents Inventory Management",
@@ -45,8 +54,10 @@ translations = {
         "batch_number": "Batch Number",
         "received_date": "Date Received",
         "expiry_date": "Expiry Date",
-        "quantity": "Stock Quantity",
+        "quantity": "Stock Quantity (Bottles)",
         "open_date": "Opening Date",
+        "location": "Physical Location",
+        "username": "Username",
         "added": "✔️ Reagent added!",
         "reagents_list": "📋 Reagent List",
         "delete": "🗑️ Delete",
@@ -59,51 +70,62 @@ translations = {
         "expiring_soon": "Reagents expiring within 60 days:",
         "no_expiry_alerts": "No expiring reagents.",
         "download": "⬇️ Download CSV",
-        "download_btn": "📥 Download CSV"
+        "download_btn": "📥 Download CSV",
+        "upload_excel": "📤 Upload Excel file (xlsx)",
+        "history_log": "🕒 Usage History Log",
+        "use_bottle": "📤 Use Bottle",
+        "no_stock": "❗ No bottles in stock",
+        "bottle_used": "Bottle used ({}) - {} left",
+        "file_loaded": "📁 File loaded successfully.",
+        "file_error": "❌ File missing required columns.",
+        "file_exception": "File load error:"
     }
 }
 
-# בחירת שפה
 language = st.sidebar.selectbox("Language / שפה", ["עברית", "English"])
 lang_code = "he" if language == "עברית" else "en"
 t = translations[lang_code]
 
-# התחלה
+username = st.sidebar.text_input(t["username"], value="")
+
 @st.cache_data
 def init_data():
     return pd.DataFrame(columns=[
-        t["name"], t["supplier"], t["catalog_number"], t["cas_number"],
-        t["internal_id"], t["batch_number"], t["received_date"],
-        t["expiry_date"], t["quantity"], t["open_date"]
+        t["name"], t["supplier"], t["catalog_number"], t["cas_number"], t["internal_id"],
+        t["batch_number"], t["received_date"], t["expiry_date"], t["quantity"], t["open_date"], t["location"]
     ])
+
+@st.cache_data
+def init_log():
+    return pd.DataFrame(columns=["Date", t["name"], t["batch_number"], t["username"]])
 
 if "df" not in st.session_state:
     st.session_state.df = init_data()
 
-uploaded_file = st.sidebar.file_uploader("📤 העלה קובץ Excel (xlsx)", type=["xlsx"])
-if uploaded_file:
-    try:
-        uploaded_df = pd.read_excel(uploaded_file)
-        expected_columns = [
-            t["name"], t["supplier"], t["catalog_number"], t["cas_number"],
-            t["internal_id"], t["batch_number"], t["received_date"],
-            t["expiry_date"], t["quantity"], t["open_date"]
-        ]
-        if all(col in uploaded_df.columns for col in expected_columns):
-            st.session_state.df = uploaded_df
-            st.success("📁 הקובץ נטען בהצלחה.")
-        else:
-            st.error("❌ הקובץ לא כולל את כל העמודות הנדרשות.")
-    except Exception as e:
-        st.error(f"שגיאה בטעינת הקובץ: {e}")
-
+if "log" not in st.session_state:
+    st.session_state.log = init_log()
 
 if "delete_index" not in st.session_state:
     st.session_state.delete_index = None
 
+uploaded_file = st.sidebar.file_uploader(t["upload_excel"], type=["xlsx"])
+if uploaded_file:
+    try:
+        uploaded_df = pd.read_excel(uploaded_file)
+        expected_columns = [
+            t["name"], t["supplier"], t["catalog_number"], t["cas_number"], t["internal_id"],
+            t["batch_number"], t["received_date"], t["expiry_date"], t["quantity"], t["open_date"], t["location"]
+        ]
+        if all(col in uploaded_df.columns for col in expected_columns):
+            st.session_state.df = uploaded_df
+            st.success(t["file_loaded"])
+        else:
+            st.error(t["file_error"])
+    except Exception as e:
+        st.error(f"{t['file_exception']} {e}")
+
 st.title(t["title"])
 
-# טופס הוספה
 with st.form("form_add"):
     cols = st.columns(2)
     name = cols[0].text_input(t["name"])
@@ -122,34 +144,40 @@ with st.form("form_add"):
     expiry_date = cols[1].date_input(t["expiry_date"])
 
     cols = st.columns(2)
-    quantity = cols[0].number_input(t["quantity"], min_value=0.0, format="%.2f")
+    quantity = cols[0].number_input(t["quantity"], min_value=0, format="%d")
     open_date = cols[1].date_input(t["open_date"], value=datetime.today())
+
+    location = st.text_input(t["location"])
 
     submitted = st.form_submit_button(t["add_reagent"])
     if submitted:
         new_row = pd.DataFrame([[
             name, supplier, catalog_number, cas_number, internal_id,
-            batch_number, received_date, expiry_date, quantity, open_date
+            batch_number, received_date, expiry_date, quantity, open_date, location
         ]], columns=st.session_state.df.columns)
         st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
         st.success(t["added"])
 
-# הצגת טבלה עם כפתורי מחיקה
 st.subheader(t["reagents_list"])
 for i, row in st.session_state.df.iterrows():
     cols = st.columns([5, 1])
     with cols[0]:
-        st.markdown(
-            f"""
-            **{row[t['name']]}**  
-            {t['supplier']}: {row[t['supplier']]} | {t['cas_number']}: {row[t['cas_number']]} | {t['expiry_date']}: {row[t['expiry_date']]} | {t['quantity']}: {row[t['quantity']]}
-            """
-        )
+        st.markdown(f"**{row[t['name']]}** | {t['batch_number']}: {row[t['batch_number']]} | {t['expiry_date']}: {row[t['expiry_date']]} | {t['quantity']}: {row[t['quantity']]} | {t['location']]}")
+
     with cols[1]:
         if st.button(t["delete"], key=f"delete_{i}"):
             st.session_state.delete_index = i
+        if row[t["quantity"]] > 0:
+            if st.button(t["use_bottle"], key=f"use_{i}"):
+                st.session_state.df.at[i, t["quantity"]] -= 1
+                new_log = pd.DataFrame([[datetime.now(), row[t["name"]], row[t["batch_number"]], username]],
+                                       columns=st.session_state.log.columns)
+                st.session_state.log = pd.concat([st.session_state.log, new_log], ignore_index=True)
+                st.success(t["bottle_used"].format(row[t["name"]], st.session_state.df.at[i, t["quantity"]]))
+                st.rerun()
+        else:
+            st.info(t["no_stock"])
 
-# אישור מחיקה
 if st.session_state.delete_index is not None:
     index = st.session_state.delete_index
     st.error(f"{t['confirm_msg']} **{st.session_state.df.loc[index, t['name']]}**?")
@@ -163,7 +191,6 @@ if st.session_state.delete_index is not None:
         st.session_state.delete_index = None
         st.info(t["cancelled"])
 
-# התראות תוקף
 st.subheader(t["alerts"])
 today = datetime.today().date()
 df_alert = st.session_state.df.copy()
@@ -176,8 +203,10 @@ if not df_alert.empty:
 else:
     st.success(t["no_expiry_alerts"])
 
-# הורדה כ-CSV
 st.subheader(t["download"])
 buffer = io.StringIO()
 st.session_state.df.to_csv(buffer, index=False, encoding='utf-8-sig')
 st.download_button(t["download_btn"], buffer.getvalue(), file_name="reagents_inventory.csv", mime="text/csv")
+
+st.subheader(t["history_log"])
+st.dataframe(st.session_state.log, use_container_width=True)
