@@ -162,7 +162,8 @@ st.subheader(t["reagents_list"])
 for i, row in st.session_state.df.iterrows():
     cols = st.columns([5, 1])
     with cols[0]:
-        st.markdown(f"**{row[t['name']]}** | {t['batch_number']}: {row[t['batch_number']]} | {t['expiry_date']}: {row[t['expiry_date']]} | {t['quantity']}: {row[t['quantity']]} | {t['location']]}")
+       st.markdown(f"**{row[t['name']]}** | {t['batch_number']}: {row[t['batch_number']]} | {t['expiry_date']}: {row[t['expiry_date']]} | {t['quantity']}: {row[t['quantity']]} | {t['location']}: {row[t['location']]}")
+
 
     with cols[1]:
         if st.button(t["delete"], key=f"delete_{i}"):
