@@ -1,3 +1,5 @@
-pandas
-openpyxl
 streamlit
+pandas
+bcrypt
+sqlite3 (מובנה כבר ב־Python)
+openpyxl
