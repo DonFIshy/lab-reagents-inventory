@@ -1,211 +1,193 @@
+# app.py
 import streamlit as st
+import sqlite3
 import pandas as pd
+import bcrypt
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="Reagents Inventory", layout="wide")
+# התחברות למסד הנתונים
+conn = sqlite3.connect("users.db", check_same_thread=False)
+c = conn.cursor()
+c.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    username TEXT PRIMARY KEY,
+    password_hash TEXT,
+    role TEXT
+)
+""")
+conn.commit()
 
-# פונקציה לפירוש תאריכים בפורמטים שונים
-def parse_flexible_date(series):
-    return pd.to_datetime(series, errors='coerce', dayfirst=True)
+# יצירת משתמש admin זמני אם לא קיים
+def create_admin_if_missing():
+    c.execute("SELECT username FROM users WHERE username = 'admin'")
+    if not c.fetchone():
+        password = '1234'
+        hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+        c.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+                  ('admin', hashed, 'admin'))
+        conn.commit()
+        print("✅ Admin user created with username: admin and password: 1234")
 
-# תרגומים
+create_admin_if_missing()
+
+# פונקציית התחברות
+def login_user(username, password):
+    c.execute("SELECT password_hash, role FROM users WHERE username = ?", (username,))
+    result = c.fetchone()
+    if result and bcrypt.checkpw(password.encode(), result[0].encode()):
+        return True, result[1]
+    return False, None
+
+# פונקציית הרשמה
+def register_user(username, password, role):
+    password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    try:
+        c.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", (username, password_hash, role))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+
+# פונקציית טעינת תרגומים
 translations = {
-    "he": {
-        "title": "📦 ניהול מלאי ריאגנטים במעבדה",
-        "add_reagent": "➕ הוסף ריאגנט",
-        "name": "שם הריאגנט",
-        "supplier": "ספק",
-        "catalog_number": "מספר קטלוגי",
-        "cas_number": "מספר CAS",
-        "internal_id": "מספר פנימי במעבדה",
-        "batch_number": "מספר אצווה",
-        "received_date": "תאריך קבלה",
-        "expiry_date": "תוקף",
-        "expiry_note": "הערת תוקף",
-        "quantity": "כמות במלאי",
-        "open_date": "תאריך פתיחה",
-        "location": "מיקום פיזי",
-        "username": "שם משתמש",
-        "alerts": "⚠️ חומרים שתוקפם קרוב",
-        "expiring_soon": "ריאגנטים שתוקפם תוך 60 יום:",
-        "no_expiry_alerts": "אין חומרים שתוקפם קרוב.",
-        "history_log": "🕒 היסטוריית הוצאות",
-        "delete": "🗑️ מחק",
-        "use_bottle": "📤 הוצא בקבוק",
-        "confirm_msg": "האם למחוק את",
-        "confirm_delete": "✅ מחק",
-        "cancel": "❌ ביטול",
-        "deleted": "הריאגנט נמחק.",
-        "cancelled": "המחיקה בוטלה.",
-        "file_loaded": "📁 הקובץ נטען בהצלחה.",
-        "file_error": "❌ הקובץ לא כולל את כל העמודות.",
-        "file_exception": "שגיאה בטעינת הקובץ:"
-    },
     "en": {
-        "title": "📦 Lab Reagents Inventory Management",
-        "add_reagent": "➕ Add Reagent",
-        "name": "Reagent Name",
-        "supplier": "Supplier",
-        "catalog_number": "Catalog Number",
-        "cas_number": "CAS Number",
-        "internal_id": "Internal Lab ID",
-        "batch_number": "Batch Number",
-        "received_date": "Date Received",
-        "expiry_date": "Expiry Date",
-        "expiry_note": "Expiry Note",
-        "quantity": "Stock Quantity",
-        "open_date": "Opening Date",
-        "location": "Physical Location",
-        "username": "Username",
-        "alerts": "⚠️ Expiring Soon",
-        "expiring_soon": "Reagents expiring within 60 days:",
-        "no_expiry_alerts": "No expiring reagents.",
-        "history_log": "🕒 Usage Log",
-        "delete": "🗑️ Delete",
-        "use_bottle": "📤 Use Bottle",
-        "confirm_msg": "Are you sure you want to delete",
-        "confirm_delete": "✅ Delete",
-        "cancel": "❌ Cancel",
-        "deleted": "Reagent deleted.",
-        "cancelled": "Deletion cancelled.",
-        "file_loaded": "📁 File loaded.",
-        "file_error": "❌ Missing required columns.",
-        "file_exception": "File error:"
+        "Reagent Name": "Reagent Name",
+        "Supplier": "Supplier",
+        "Catalog Number": "Catalog Number",
+        "CAS Number": "CAS Number",
+        "Internal Lab ID": "Internal Lab ID",
+        "Batch Number": "Batch Number",
+        "Date Received": "Date Received",
+        "Expiry Date": "Expiry Date",
+        "Expiry Note": "Expiry Note",
+        "Stock Quantity": "Stock Quantity",
+        "Opening Date": "Opening Date",
+        "Physical Location": "Physical Location"
+    },
+    "he": {
+        "Reagent Name": "שם הריאגנט",
+        "Supplier": "ספק",
+        "Catalog Number": "מספר קטלוגי",
+        "CAS Number": "מספר CAS",
+        "Internal Lab ID": "מספר פנימי במעבדה",
+        "Batch Number": "מספר אצווה",
+        "Date Received": "תאריך קבלה",
+        "Expiry Date": "תוקף",
+        "Expiry Note": "הערת תוקף",
+        "Stock Quantity": "כמות במלאי",
+        "Opening Date": "תאריך פתיחה",
+        "Physical Location": "מיקום פיזי"
     }
 }
 
-# שפה
-language = st.sidebar.selectbox("Language / שפה", ["English", "עברית"])
-lang = "he" if language == "עברית" else "en"
-t = translations[lang]
+# פונקציית תרגום עמודות
+def translate_columns(df, lang):
+    mapping = translations[lang]
+    return df.rename(columns=mapping)
 
-# יוזר
-username = st.sidebar.text_input(t["username"], value="")
-if st.button("Login"):
+# התחברות או הרשמה
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.role = None
+
+if not st.session_state.logged_in:
+    st.title("🔐 Login or Register")
+    mode = st.radio("Choose Mode", ["Login", "Register"])
+
+    user = st.text_input("Username")
+    show_password = st.checkbox("Show Password")
+    pwd = st.text_input("Password", type="default" if show_password else "password")
+
+    if mode == "Login":
+        if st.button("Login"):
+            valid, role = login_user(user, pwd)
+            if valid:
+                st.session_state.logged_in = True
+                st.session_state.username = user
+                st.session_state.role = role
+                st.rerun()
+            else:
+                st.error("Invalid username or password.")
+    else:
+        role = st.selectbox("Role", ["user", "admin"])
+        if st.button("Register"):
+            success = register_user(user, pwd, role)
+            if success:
+                st.success("User registered successfully. You can now log in.")
+            else:
+                st.error("Username already exists.")
+
+    st.stop()
+
+# אחרי התחברות
+st.sidebar.success(f"Logged in as {st.session_state.username} ({st.session_state.role})")
+if st.sidebar.button("🔓 Logout"):
     st.session_state.logged_in = False
     st.rerun()
-if st. sidebar.button("🔓 Logout"):
-    st.session_state.logged_in = False
+
+# כפתור איפוס session
+if st.sidebar.button("🧼 Clear Session"):
+    st.session_state.clear()
     st.rerun()
 
+language = st.sidebar.selectbox("Language / שפה", ["en", "he"])
 
-# עמודות נדרשות
-columns = [
-    t["name"], t["supplier"], t["catalog_number"], t["cas_number"],
-    t["internal_id"], t["batch_number"], t["received_date"],
-    t["expiry_date"], t["expiry_note"], t["quantity"],
-    t["open_date"], t["location"]
-]
-
-# יוזר סשן
-if "df" not in st.session_state:
-    st.session_state.df = pd.DataFrame(columns=columns)
-
-if "log" not in st.session_state:
-    st.session_state.log = pd.DataFrame(columns=["Date", t["name"], t["batch_number"], t["username"]])
-
-if "delete_index" not in st.session_state:
-    st.session_state.delete_index = None
+st.title("📦 Lab Reagents Inventory")
 
 # העלאת קובץ
-file = st.sidebar.file_uploader("📤 Excel", type=["xlsx"])
-if file:
+uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
+if uploaded_file:
     try:
-        uploaded = pd.read_excel(file)
-        if all(c in uploaded.columns for c in columns):
-            for col in ["Date Received", "Expiry Date", "Opening Date"]:
-                uploaded[col] = parse_flexible_date(uploaded[col])
-            uploaded[t["quantity"]] = pd.to_numeric(uploaded[t["quantity"]], errors='coerce').fillna(1).astype(int)
-            st.session_state.df = uploaded
-            st.success(t["file_loaded"])
+        df = pd.read_excel(uploaded_file)
+        df = translate_columns(df, language)
+        df["Expiry Date"] = pd.to_datetime(df["Expiry Date"], errors="coerce", dayfirst=True)
+        df["Date Received"] = pd.to_datetime(df["Date Received"], errors="coerce", dayfirst=True)
+        df["Opening Date"] = pd.to_datetime(df["Opening Date"], errors="coerce", dayfirst=True)
+
+        # סינון לפי חיפוש
+        st.sidebar.markdown("### 🔍 Search Filters")
+        reagent_search = st.sidebar.text_input("Reagent Name")
+        catalog_search = st.sidebar.text_input("Catalog Number")
+        cas_search = st.sidebar.text_input("CAS Number")
+        labid_search = st.sidebar.text_input("Internal Lab ID")
+
+        filtered_df = df.copy()
+        if reagent_search:
+            filtered_df = filtered_df[filtered_df["Reagent Name"].astype(str).str.contains(reagent_search, case=False)]
+        if catalog_search:
+            filtered_df = filtered_df[filtered_df["Catalog Number"].astype(str).str.contains(catalog_search, case=False)]
+        if cas_search:
+            filtered_df = filtered_df[filtered_df["CAS Number"].astype(str).str.contains(cas_search, case=False)]
+        if labid_search:
+            filtered_df = filtered_df[filtered_df["Internal Lab ID"].astype(str).str.contains(labid_search, case=False)]
+
+        # עיצוב טבלת ריאגנטים
+        def highlight_expiry(val):
+            if isinstance(val, pd.Timestamp):
+                days_left = (val - datetime.today()).days
+                if days_left < 0:
+                    return "background-color: red; color: white"
+                elif days_left <= 60:
+                    return "background-color: orange"
+            return ""
+
+        styled_df = filtered_df.style.applymap(highlight_expiry, subset=["Expiry Date"])
+        st.subheader("🧪 Filtered Reagent Table")
+        st.dataframe(styled_df, use_container_width=True)
+
+        # הצגת חומרים שתוקפם מתקרב
+        st.subheader("⚠️ Expiring Within 60 Days")
+        expiring = filtered_df[filtered_df["Expiry Date"] <= (datetime.today() + timedelta(days=60))]
+        if not expiring.empty:
+            st.dataframe(expiring.style.applymap(highlight_expiry, subset=["Expiry Date"]), use_container_width=True)
         else:
-            st.error(t["file_error"])
+            st.info("No reagents expiring soon.")
+
+        # כפתור מחיקה - רק לאדמין
+        if st.session_state.role == "admin":
+            if st.button("🗑️ Delete All Data"):
+                st.warning("This would delete data from memory. Implement DB deletion here if needed.")
     except Exception as e:
-        st.error(f"{t['file_exception']} {e}")
-
-# טופס הוספה
-st.title(t["title"])
-with st.form("add"):
-    c1, c2 = st.columns(2)
-    name = c1.text_input(t["name"])
-    supplier = c2.text_input(t["supplier"])
-    c3, c4 = st.columns(2)
-    catalog = c3.text_input(t["catalog_number"])
-    cas = c4.text_input(t["cas_number"])
-    c5, c6 = st.columns(2)
-    internal = c5.text_input(t["internal_id"])
-    batch = c6.text_input(t["batch_number"])
-    c7, c8 = st.columns(2)
-    received = c7.date_input(t["received_date"])
-    expiry = c8.date_input(t["expiry_date"])
-    note = st.text_input(t["expiry_note"])
-    c9, c10 = st.columns(2)
-    qty = c9.number_input(t["quantity"], min_value=0, format="%d")
-    opened = c10.date_input(t["open_date"])
-    location = st.text_input(t["location"])
-    if st.form_submit_button(t["add_reagent"]):
-        new = pd.DataFrame([[name, supplier, catalog, cas, internal, batch,
-                             received, expiry, note, qty, opened, location]],
-                           columns=columns)
-        st.session_state.df = pd.concat([st.session_state.df, new], ignore_index=True)
-
-# התראות
-st.subheader(t["alerts"])
-today = datetime.today().date()
-df_alert = st.session_state.df.copy()
-if t["expiry_date"] in df_alert.columns:
-    try:
-        df_alert[t["expiry_date"]] = parse_flexible_date(df_alert[t["expiry_date"]]).dt.date
-        df_alert = df_alert[df_alert[t["expiry_date"]].notna() &
-                            (df_alert[t["expiry_date"]] <= today + timedelta(days=60))]
-        if not df_alert.empty:
-            st.warning(t["expiring_soon"])
-            st.dataframe(df_alert, use_container_width=True)
-        else:
-            st.success(t["no_expiry_alerts"])
-    except Exception as e:
-        st.error(f"⚠️ {e}")
-
-# תצוגת מלאי
-st.subheader(t["title"])
-for i, row in st.session_state.df.iterrows():
-    col1, col2 = st.columns([5, 1])
-    with col1:
-        st.markdown(
-            f"**{row[t['name']]}** | {t['batch_number']}: {row[t['batch_number']]} | "
-            f"{t['expiry_date']}: {row[t['expiry_date']]} | {t['expiry_note']}: {row[t['expiry_note']]} | "
-            f"{t['quantity']}: {row[t['quantity']]} | {t['location']}: {row[t['location']]}"
-        )
-    with col2:
-        if st.button(t["delete"], key=f"del_{i}"):
-            st.session_state.delete_index = i
-        if row[t["quantity"]] > 0:
-            if st.button(t["use_bottle"], key=f"use_{i}"):
-                st.session_state.df.at[i, t["quantity"]] -= 1
-                log_row = pd.DataFrame([[datetime.now(), row[t["name"]], row[t["batch_number"]], username]],
-                                       columns=["Date", t["name"], t["batch_number"], t["username"]])
-                st.session_state.log = pd.concat([st.session_state.log, log_row], ignore_index=True)
-                st.rerun()
-        else:
-            st.info("❗ 0")
-
-if st.session_state.delete_index is not None:
-    i = st.session_state.delete_index
-    st.error(f"{t['confirm_msg']} {st.session_state.df.loc[i, t['name']]}?")
-    b1, b2 = st.columns(2)
-    if b1.button(t["confirm_delete"]):
-        st.session_state.df = st.session_state.df.drop(index=i).reset_index(drop=True)
-        st.session_state.delete_index = None
-        st.success(t["deleted"])
-        st.rerun()
-    if b2.button(t["cancel"]):
-        st.session_state.delete_index = None
-        st.info(t["cancelled"])
-
-# הורדה ל-CSV
-csv = st.session_state.df.to_csv(index=False, encoding='utf-8-sig')
-st.download_button("📥 Download CSV", csv, file_name="inventory.csv", mime="text/csv")
-
-# לוג שימוש
-st.subheader(t["history_log"])
-st.dataframe(st.session_state.log, use_container_width=True)
+        st.error(f"Error: {e}")
+else:
+    st.info("Please upload a valid Excel file.")
