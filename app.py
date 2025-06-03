@@ -17,18 +17,12 @@ CREATE TABLE IF NOT EXISTS users (
 """)
 conn.commit()
 
-# יצירת משתמש admin זמני אם לא קיים
-def create_admin_if_missing():
-    c.execute("SELECT username FROM users WHERE username = 'admin'")
-    if not c.fetchone():
-        password = '1234'
-        hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-        c.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
-                  ('admin', hashed, 'admin'))
-        conn.commit()
-        print("✅ Admin user created with username: admin and password: 1234")
+# בדיקה: הצגת כל המשתמשים במסד (DEBUG זמני)
+if st.sidebar.checkbox("🔍 Show all users (debug)"):
+    c.execute("SELECT username, role FROM users")
+    users = c.fetchall()
+    st.sidebar.write("Users in DB:", users)
 
-create_admin_if_missing()
 
 # פונקציית התחברות
 def login_user(username, password):
@@ -192,9 +186,5 @@ if uploaded_file:
 else:
     st.info("Please upload a valid Excel file.")
 
-# בדיקה: הצגת כל המשתמשים במסד
-if st.sidebar.checkbox("🔍 Show all users (debug)"):
-    c.execute("SELECT username, role FROM users")
-    users = c.fetchall()
-    st.sidebar.write("Users in DB:", users)
+
 
