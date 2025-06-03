@@ -82,7 +82,7 @@ t = translations[lang]
 # יוזר
 username = st.sidebar.text_input(t["username"], value="")
 if st.button("Login"):
-    st.session_state.logged_in = true
+    st.session_state.logged_in = False
     st.rerun()
 if st. sidebar.button("🔓 Logout"):
     st.session_state.logged_in = False
