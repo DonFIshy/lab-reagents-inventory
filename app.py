@@ -156,7 +156,15 @@ if st.session_state.role == "admin":
         excel_file = st.file_uploader("Upload Excel File", type=["xlsx"])
         if excel_file:
             df_excel = pd.read_excel(excel_file)
-            df_excel.to_sql("reagents", conn, if_exists="append", index=False)
+           expected_cols = [
+    "name", "supplier", "catalog_number", "cas_number", "internal_id",
+    "batch_number", "date_received", "expiry_date", "expiry_note",
+    "stock_quantity", "opening_date", "location"
+]
+df_excel.columns = df_excel.columns.str.strip().str.lower().str.replace(" ", "_")
+df_excel = df_excel[[col for col in df_excel.columns if col in expected_cols]]
+df_excel.to_sql("reagents", conn, if_exists="append", index=False)
+
             st.success("Excel data imported to database.")
 
 # ייצוא לאקסל
