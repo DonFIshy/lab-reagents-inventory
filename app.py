@@ -69,6 +69,43 @@ def register_user(username, password, role):
     except sqlite3.IntegrityError:
         return False
 
+# ניהול משתמשים (רק לאדמין)
+if st.session_state.role == "admin":
+    with st.expander("👥 Manage Users"):
+        st.subheader("Registered Users")
+        users_df = pd.read_sql_query("SELECT username, role FROM users", conn)
+        selected_user = st.selectbox("Select User", users_df["username"])
+        selected_role = users_df[users_df["username"] == selected_user]["role"].values[0]
+        st.write(f"Current role: {selected_role}")
+
+        # שינוי סיסמה
+        st.write("Change Password")
+        new_pwd = st.text_input("New Password", key="pwd1")
+        if st.button("Update Password"):
+            new_hash = bcrypt.hashpw(new_pwd.encode(), bcrypt.gensalt()).decode()
+            c.execute("UPDATE users SET password_hash = ? WHERE username = ?", (new_hash, selected_user))
+            conn.commit()
+            st.success("Password updated")
+
+        # שינוי תפקיד
+        new_role = st.selectbox("Change Role", ["user", "admin"], index=["user", "admin"].index(selected_role))
+        if st.button("Update Role"):
+            c.execute("UPDATE users SET role = ? WHERE username = ?", (new_role, selected_user))
+            conn.commit()
+            st.success("Role updated")
+
+        # מחיקת יוזר
+        if st.button("Delete User"):
+            if selected_user != "admin":
+                c.execute("DELETE FROM users WHERE username = ?", (selected_user,))
+                conn.commit()
+                st.success("User deleted")
+            else:
+                st.warning("Cannot delete the admin user")
+
+        users_df = pd.read_sql_query("SELECT username, role FROM users", conn)
+        st.dataframe(users_df)
+
 # תרגומים
 translations = {
     "en": {
@@ -150,20 +187,38 @@ language = st.sidebar.selectbox("Language / שפה", ["en", "he"])
 labels = translate_columns(language)
 st.title("📦 Lab Reagents Inventory")
 
-# ייבוא אקסל (אופציה לאדמין בלבד)
+# 📥 ייבוא מבוקר מקובץ Excel (Admin בלבד)
 if st.session_state.role == "admin":
     with st.expander("📥 Import from Excel"):
         excel_file = st.file_uploader("Upload Excel File", type=["xlsx"])
         if excel_file:
+            # טען לקובץ pandas
             df_excel = pd.read_excel(excel_file)
-           expected_cols = [
-    "name", "supplier", "catalog_number", "cas_number", "internal_id",
-    "batch_number", "date_received", "expiry_date", "expiry_note",
-    "stock_quantity", "opening_date", "location"
-]
-df_excel.columns = df_excel.columns.str.strip().str.lower().str.replace(" ", "_")
-df_excel = df_excel[[col for col in df_excel.columns if col in expected_cols]]
-df_excel.to_sql("reagents", conn, if_exists="append", index=False)
+
+            # נקה עמודות - הסר רווחים, הפוך לאותיות קטנות, והחלף רווחים בקווים תחתיים
+            df_excel.columns = df_excel.columns.str.strip().str.lower().str.replace(" ", "_")
+
+            # העמודות שאנחנו מצפים להן במסד הנתונים
+            expected_cols = [
+                "name", "supplier", "catalog_number", "cas_number", "internal_id",
+                "batch_number", "date_received", "expiry_date", "expiry_note",
+                "stock_quantity", "opening_date", "location"
+            ]
+
+            # סינון לפי העמודות הקיימות במסד הנתונים
+            df_filtered = df_excel[[col for col in df_excel.columns if col in expected_cols]]
+
+            # הצגה מקדימה
+            st.subheader("Preview of Uploaded Data")
+            st.dataframe(df_filtered)
+
+            # לחצן לאישור הוספה למסד
+            if st.button("✅ Confirm Import"):
+                try:
+                    df_filtered.to_sql("reagents", conn, if_exists="append", index=False)
+                    st.success("Data successfully imported into database.")
+                except Exception as e:
+                    st.error(f"Import failed: {e}")
 
             st.success("Excel data imported to database.")
 
