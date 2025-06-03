@@ -74,7 +74,7 @@ if not st.session_state.logged_in:
             st.session_state.logged_in = True
             st.session_state.username = user
             st.session_state.role = role
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Invalid username or password.")
     st.stop()
@@ -83,7 +83,7 @@ if not st.session_state.logged_in:
 st.sidebar.success(f"Logged in as {st.session_state.username} ({st.session_state.role})")
 if st.sidebar.button("🔓 Logout"):
     st.session_state.logged_in = False
-    st.experimental_rerun()
+    st.rerun()
 
 language = st.sidebar.selectbox("Language / שפה", ["en", "he"])
 
