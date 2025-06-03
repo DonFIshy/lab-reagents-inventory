@@ -4,6 +4,7 @@ import sqlite3
 import pandas as pd
 import bcrypt
 from datetime import datetime, timedelta
+from io import BytesIO
 
 # התחברות למסד הנתונים
 conn = sqlite3.connect("reagents.db", check_same_thread=False)
@@ -47,7 +48,6 @@ def create_admin_if_missing():
         c.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
                   ('admin', hashed, 'admin'))
         conn.commit()
-        print("✅ Admin user created with username: admin and password: 1234")
 
 create_admin_if_missing()
 
@@ -111,7 +111,7 @@ if "logged_in" not in st.session_state:
 
 if not st.session_state.logged_in:
     st.title("🔐 Login or Register")
-    mode = st.radio("Choose Mode", ["Login", "Register"])
+    mode = st.radio("Choose Mode", ["Login"] if st.session_state.role != "admin" else ["Login", "Register"])
     user = st.text_input("Username")
     show_password = st.checkbox("Show Password")
     pwd = st.text_input("Password", type="default" if show_password else "password")
@@ -150,71 +150,26 @@ language = st.sidebar.selectbox("Language / שפה", ["en", "he"])
 labels = translate_columns(language)
 st.title("📦 Lab Reagents Inventory")
 
-# טופס להוספת ריאגנט למסד נתונים
-with st.expander("➕ Add New Reagent"):
-    with st.form("add_form"):
-        new_data = {}
-        for key in labels:
-            if key in ["stock_quantity"]:
-                new_data[key] = st.number_input(labels[key], min_value=0, step=1)
-            else:
-                new_data[key] = st.text_input(labels[key])
-        submitted = st.form_submit_button("Add Reagent")
-        if submitted:
-            c.execute(f"""
-                INSERT INTO reagents ({', '.join(new_data.keys())})
-                VALUES ({', '.join(['?']*len(new_data))})
-            """, list(new_data.values()))
-            conn.commit()
-            st.success("Reagent added successfully.")
-            st.rerun()
-
-# הצגת טבלה עם אפשרות חיפוש
-st.sidebar.markdown("### 🔍 Search Filters")
-reagent_search = st.sidebar.text_input("Reagent Name")
-catalog_search = st.sidebar.text_input("Catalog Number")
-cas_search = st.sidebar.text_input("CAS Number")
-labid_search = st.sidebar.text_input("Internal Lab ID")
-
-query = "SELECT * FROM reagents"
-df = pd.read_sql_query(query, conn)
-
-if not df.empty:
-    df["expiry_date"] = pd.to_datetime(df["expiry_date"], errors="coerce")
-    df["date_received"] = pd.to_datetime(df["date_received"], errors="coerce")
-    df["opening_date"] = pd.to_datetime(df["opening_date"], errors="coerce")
-
-    if reagent_search:
-        df = df[df["name"].str.contains(reagent_search, case=False, na=False)]
-    if catalog_search:
-        df = df[df["catalog_number"].str.contains(catalog_search, case=False, na=False)]
-    if cas_search:
-        df = df[df["cas_number"].str.contains(cas_search, case=False, na=False)]
-    if labid_search:
-        df = df[df["internal_id"].str.contains(labid_search, case=False, na=False)]
-
-    def highlight_expiry(val):
-        if isinstance(val, pd.Timestamp):
-            days_left = (val - datetime.today()).days
-            if days_left < 0:
-                return "background-color: red; color: white"
-            elif days_left <= 60:
-                return "background-color: orange"
-        return ""
-
-    st.subheader("🧪 Reagents Table")
-    st.dataframe(df.style.applymap(highlight_expiry, subset=["expiry_date"]), use_container_width=True)
-
-    st.subheader("⚠️ Expiring Within 60 Days")
-    expiring = df[df["expiry_date"] <= (datetime.today() + timedelta(days=60))]
-    if not expiring.empty:
-        st.dataframe(expiring.style.applymap(highlight_expiry, subset=["expiry_date"]), use_container_width=True)
-    else:
-        st.info("No reagents expiring soon.")
-
-# כפתור מחיקה - רק לאדמין
+# ייבוא אקסל (אופציה לאדמין בלבד)
 if st.session_state.role == "admin":
-    if st.button("🗑️ Delete All Reagents"):
-        c.execute("DELETE FROM reagents")
-        conn.commit()
-        st.success("All reagent data deleted.")
+    with st.expander("📥 Import from Excel"):
+        excel_file = st.file_uploader("Upload Excel File", type=["xlsx"])
+        if excel_file:
+            df_excel = pd.read_excel(excel_file)
+            df_excel.to_sql("reagents", conn, if_exists="append", index=False)
+            st.success("Excel data imported to database.")
+
+# ייצוא לאקסל
+if st.button("📤 Export Full Inventory to Excel"):
+    df_full = pd.read_sql_query("SELECT * FROM reagents", conn)
+    buffer = BytesIO()
+    df_full.to_excel(buffer, index=False)
+    st.download_button("Download Full Inventory", buffer.getvalue(), file_name="full_inventory.xlsx")
+
+if st.button("📤 Export Expiring Reagents to Excel"):
+    df_all = pd.read_sql_query("SELECT * FROM reagents", conn)
+    df_all["expiry_date"] = pd.to_datetime(df_all["expiry_date"], errors="coerce")
+    exp = df_all[df_all["expiry_date"] <= (datetime.today() + timedelta(days=60))]
+    buffer2 = BytesIO()
+    exp.to_excel(buffer2, index=False)
+    st.download_button("Download Expiring Reagents", buffer2.getvalue(), file_name="expiring_reagents.xlsx")
