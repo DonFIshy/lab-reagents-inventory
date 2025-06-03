@@ -191,3 +191,10 @@ if uploaded_file:
         st.error(f"Error: {e}")
 else:
     st.info("Please upload a valid Excel file.")
+
+# בדיקה: הצגת כל המשתמשים במסד
+if st.sidebar.checkbox("🔍 Show all users (debug)"):
+    c.execute("SELECT username, role FROM users")
+    users = c.fetchall()
+    st.sidebar.write("Users in DB:", users)
+
