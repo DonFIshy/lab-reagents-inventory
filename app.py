@@ -80,6 +80,9 @@ lang = "he" if language == "עברית" else "en"
 t = translations[lang]
 
 # יוזר
+if st. sidebar.button("🔓 Logout"):
+    st.session_state.logged_in = False
+    st.experimental_rerun()
 username = st.sidebar.text_input(t["username"], value="")
 
 # עמודות נדרשות
