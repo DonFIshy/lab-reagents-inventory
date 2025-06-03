@@ -99,6 +99,23 @@ if uploaded_file:
         df["Date Received"] = pd.to_datetime(df["Date Received"], errors="coerce", dayfirst=True)
         df["Opening Date"] = pd.to_datetime(df["Opening Date"], errors="coerce", dayfirst=True)
 
+        # סינון לפי חיפוש
+        st.sidebar.markdown("### 🔍 Search Filters")
+        reagent_search = st.sidebar.text_input("Reagent Name")
+        catalog_search = st.sidebar.text_input("Catalog Number")
+        cas_search = st.sidebar.text_input("CAS Number")
+        labid_search = st.sidebar.text_input("Internal Lab ID")
+
+        filtered_df = df.copy()
+        if reagent_search:
+            filtered_df = filtered_df[filtered_df["Reagent Name"].astype(str).str.contains(reagent_search, case=False)]
+        if catalog_search:
+            filtered_df = filtered_df[filtered_df["Catalog Number"].astype(str).str.contains(catalog_search, case=False)]
+        if cas_search:
+            filtered_df = filtered_df[filtered_df["CAS Number"].astype(str).str.contains(cas_search, case=False)]
+        if labid_search:
+            filtered_df = filtered_df[filtered_df["Internal Lab ID"].astype(str).str.contains(labid_search, case=False)]
+
         # עיצוב טבלת ריאגנטים
         def highlight_expiry(val):
             if isinstance(val, pd.Timestamp):
@@ -109,13 +126,13 @@ if uploaded_file:
                     return "background-color: orange"
             return ""
 
-        styled_df = df.style.applymap(highlight_expiry, subset=["Expiry Date"])
-        st.subheader("🧪 Full Reagent Table")
+        styled_df = filtered_df.style.applymap(highlight_expiry, subset=["Expiry Date"])
+        st.subheader("🧪 Filtered Reagent Table")
         st.dataframe(styled_df, use_container_width=True)
 
         # הצגת חומרים שתוקפם מתקרב
         st.subheader("⚠️ Expiring Within 60 Days")
-        expiring = df[df["Expiry Date"] <= (datetime.today() + timedelta(days=60))]
+        expiring = filtered_df[filtered_df["Expiry Date"] <= (datetime.today() + timedelta(days=60))]
         if not expiring.empty:
             st.dataframe(expiring.style.applymap(highlight_expiry, subset=["Expiry Date"]), use_container_width=True)
         else:
