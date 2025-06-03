@@ -6,6 +6,20 @@ import bcrypt
 from datetime import datetime, timedelta
 
 # התחברות למסד הנתונים
+# יצירת משתמש admin זמני אם לא קיים
+def create_admin_if_missing():
+    c.execute("SELECT username FROM users WHERE username = 'admin'")
+    if not c.fetchone():
+        import bcrypt
+        password = '1234'
+        hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+        c.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+                  ('admin', hashed, 'admin'))
+        conn.commit()
+        print("✅ Admin user created with username: admin and password: 1234")
+
+create_admin_if_missing()
+
 conn = sqlite3.connect("users.db", check_same_thread=False)
 c = conn.cursor()
 c.execute("""
