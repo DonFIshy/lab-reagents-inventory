@@ -80,10 +80,14 @@ lang = "he" if language == "עברית" else "en"
 t = translations[lang]
 
 # יוזר
+username = st.sidebar.text_input(t["username"], value="")
+if st.button("Login"):
+    st.session_state.logged_in = true
+    st.rerun()
 if st. sidebar.button("🔓 Logout"):
     st.session_state.logged_in = False
-    st.experimental_rerun()
-username = st.sidebar.text_input(t["username"], value="")
+    st.rerun()
+
 
 # עמודות נדרשות
 columns = [
