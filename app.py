@@ -228,6 +228,22 @@ if st.session_state.role == "admin":
                 except Exception as e:
                     st.error(f"Import failed: {e}")
 
+
+            # סינון לפי העמודות הקיימות במסד הנתונים
+            df_filtered = df_excel[[col for col in df_excel.columns if col in expected_cols]]
+
+            # הצגה מקדימה
+            st.subheader("Preview of Uploaded Data")
+            st.dataframe(df_filtered)
+
+            # לחצן לאישור הוספה למסד
+            if st.button("✅ Confirm Import"):
+                try:
+                    df_filtered.to_sql("reagents", conn, if_exists="append", index=False)
+                    st.success("Data successfully imported into database.")
+                except Exception as e:
+                    st.error(f"Import failed: {e}")
+
             st.success("Excel data imported to database.")
 
 # ייצוא לאקסל
