@@ -51,6 +51,14 @@ def create_admin_if_missing():
 
 create_admin_if_missing()
 
+# הגדרות ברירת מחדל ל־session_state
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "role" not in st.session_state:
+    st.session_state.role = None
+if "username" not in st.session_state:
+    st.session_state.username = None
+
 # פונקציות התחברות והרשמה
 
 def login_user(username, password):
