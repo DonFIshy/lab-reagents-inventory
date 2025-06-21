@@ -6,7 +6,7 @@ conn = sqlite3.connect('users.db')
 c = conn.cursor()
 
 # בוחרים סיסמה חדשה
-new_password = 'NewPassword123!'  # כאן שים את הסיסמה החדשה שתרצה
+new_password = 'Reagents123!'  # כאן שים את הסיסמה החדשה שתרצה
 
 # גיבוב הסיסמה
 hashed = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt())
